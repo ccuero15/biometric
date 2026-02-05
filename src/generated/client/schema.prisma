@@ -1,0 +1,89 @@
+// prisma/schema.prisma
+
+generator client {
+  provider = "prisma-client-js"
+  output   = "../src/generated/client" // Generamos dentro de src para facilitar imports
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// --- IDENTIDAD ---
+model User {
+  id        Int      @id @default(autoincrement())
+  cedula    String   @unique
+  fullName  String
+  email     String   @unique
+  password  String
+  isDeleted Boolean  @default(false)
+  createdAt DateTime @default(now())
+
+  // Relaciones
+  templates      BiometricTemplate[]
+  records        AttendanceRecord[]
+  branchOfficeId Int
+  branchOffice   BranchOffice        @relation(fields: [branchOfficeId], references: [id])
+}
+
+// --- BIOMETRÍA (Mejora de Seguridad) ---
+model BiometricTemplate {
+  id     Int  @id @default(autoincrement())
+  userId Int
+  user   User @relation(fields: [userId], references: [id])
+
+  // El template debe guardarse cifrado. Guardamos el IV para AES-256.
+  encryptedData String // El template binario en Base64/Hex cifrado
+  encryptionIv  String // Vector de inicialización para descifrar
+  fingerIndex   Int // 0: Pulgar, 1: Índice, etc.
+
+  qualityScore Int // Calidad de la captura para auditoría
+  createdAt    DateTime @default(now())
+
+  @@index([userId])
+}
+
+// --- HARDWARE ---
+model BiometricDevice {
+  id       Int          @id @default(autoincrement())
+  name     String
+  serial   String       @unique
+  ip       String?
+  port     Int?
+  token    String?      @unique
+  lastSync DateTime?
+  status   DeviceStatus @default(OFFLINE)
+
+  branchOfficeId Int
+  branchOffice   BranchOffice @relation(fields: [branchOfficeId], references: [id])
+}
+
+enum DeviceStatus {
+  ONLINE
+  OFFLINE
+  MAINTENANCE
+}
+
+// Las tablas de Company y BranchOffice se mantienen similares al Python pero con CamelCase
+model Company {
+  id       Int            @id @default(autoincrement())
+  name     String
+  branches BranchOffice[]
+}
+
+model BranchOffice {
+  id        Int               @id @default(autoincrement())
+  name      String
+  companyId Int
+  company   Company           @relation(fields: [companyId], references: [id])
+  users     User[]
+  devices   BiometricDevice[]
+}
+
+model AttendanceRecord {
+  id        Int      @id @default(autoincrement())
+  userId    Int
+  user      User     @relation(fields: [userId], references: [id])
+  timestamp DateTime @default(now())
+  deviceId  Int
+}

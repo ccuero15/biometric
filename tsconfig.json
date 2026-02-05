@@ -1,0 +1,27 @@
+{
+    "compilerOptions": {
+        "target": "ES2022",
+        "module": "NodeNext",
+        "moduleResolution": "NodeNext",
+        "outDir": "./dist",
+        "rootDir": "./src",
+        "strict": true,
+        //"noImplicitAny": true, // Refuerza tu regla de no usar 'any'
+        "esModuleInterop": true,
+        "skipLibCheck": true,
+        "forceConsistentCasingInFileNames": true,
+        "noEmit": true, /* Requerido si usas la opción anterior */
+        "allowImportingTsExtensions": true,
+        /* Ya no usamos baseUrl */
+        "paths": {
+            "@/*": [
+                "./*"
+            ]
+        }
+    },
+    "include": [
+        "src/**/*",
+        "eslint.config.ts",
+        "prisma.config.ts"
+    ]
+}

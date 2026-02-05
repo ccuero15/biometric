@@ -1,0 +1,111 @@
+// prisma/schema.prisma
+
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/client" // Generamos dentro de src para facilitar imports
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+// --- IDENTIDAD ---
+model User {
+  id        Int      @id @default(autoincrement())
+  cedula    String   @unique
+  fullName  String   @map("full_name")
+  email     String   @unique
+  password  String
+  isDeleted Boolean  @default(false) @map("is_deleted")
+  createdAt DateTime @default(now()) @map("created_at")
+
+  // Relaciones
+  branchOfficeId Int      @map("branch_office_id")
+  branchOffice   BranchOffice @relation(fields: [branchOfficeId], references: [id])
+  
+  templates      BiometricTemplate[]
+  records        AttendanceRecord[]
+
+  @@map("users")
+}
+
+// --- BIOMETRÍA ---
+model BiometricTemplate {
+  id            Int      @id @default(autoincrement())
+  userId        Int      @map("user_id")
+  user          User     @relation(fields: [userId], references: [id])
+
+  // Cifrado AES-256
+  encryptedData String   @map("encrypted_data")
+  encryptionIv  String   @map("encryption_iv")
+  fingerIndex   Int      @map("finger_index")
+
+  qualityScore  Int      @map("quality_score")
+  createdAt     DateTime @default(now()) @map("created_at")
+  isDeleted     Boolean  @default(false) @map("is_deleted") // Para poder invalidar una huella sin borrar al usuario
+
+  @@index([userId])
+  @@map("biometric_templates")
+}
+
+// --- HARDWARE ---
+model BiometricDevice {
+  id        Int          @id @default(autoincrement())
+  name      String
+  serial    String       @unique
+  ip        String?
+  port      Int?
+  token     String?      @unique
+  lastSync  DateTime?    @map("last_sync")
+  status    DeviceStatus @default(OFFLINE)
+  isDeleted Boolean      @default(false) @map("is_deleted")
+
+  branchOfficeId Int          @map("branch_office_id")
+  branchOffice   BranchOffice @relation(fields: [branchOfficeId], references: [id])
+
+  @@map("biometric_devices")
+}
+
+enum DeviceStatus {
+  ONLINE
+  OFFLINE
+  MAINTENANCE
+}
+
+// --- ESTRUCTURA ORGANIZACIONAL ---
+model Company {
+  id        Int            @id @default(autoincrement())
+  name      String
+  isDeleted Boolean        @default(false) @map("is_deleted")
+  branches  BranchOffice[]
+
+  @@map("companies")
+}
+
+model BranchOffice {
+  id        Int               @id @default(autoincrement())
+  name      String
+  isDeleted Boolean           @default(false) @map("is_deleted")
+  
+  companyId Int               @map("company_id")
+  company   Company           @relation(fields: [companyId], references: [id])
+  
+  users     User[]
+  devices   BiometricDevice[]
+
+  @@map("branch_offices")
+}
+
+// --- REGISTROS DE ASISTENCIA ---
+model AttendanceRecord {
+  id        Int      @id @default(autoincrement())
+  userId    Int      @map("user_id")
+  user      User     @relation(fields: [userId], references: [id])
+  deviceId  Int      @map("device_id")
+  timestamp DateTime @default(now())
+
+  // Nota: En registros históricos no solemos usar isDeleted, 
+  // ya que son hechos inmutables. Se mantienen para auditoría.
+
+  @@map("attendance_records")
+}
