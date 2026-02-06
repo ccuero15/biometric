@@ -8,7 +8,7 @@ dotenv.config();
 // Creamos el Pool de conexiones manualmente
 // Esto soluciona el error de "password must be a string"
 const pool = new pg.Pool({ 
-    connectionString: dotenv.config().parsed?.DATABASE_URL 
+    connectionString: dotenv.config().parsed?.DATABASE_URL || process.env.DATABASE_URL
 });
 
 // Creamos el adaptador usando el pool instanciado

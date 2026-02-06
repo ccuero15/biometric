@@ -4,7 +4,7 @@
         "module": "NodeNext",
         "moduleResolution": "NodeNext",
         "outDir": "./dist",
-        "rootDir": "./src",
+        "rootDir": "./",
         "strict": true,
         //"noImplicitAny": true, // Refuerza tu regla de no usar 'any'
         "esModuleInterop": true,
@@ -12,16 +12,18 @@
         "forceConsistentCasingInFileNames": true,
         "noEmit": true, /* Requerido si usas la opción anterior */
         "allowImportingTsExtensions": true,
-        /* Ya no usamos baseUrl */
+        "typeRoots": [
+            "./node_modules/@types",
+            "./src/interfaces"
+        ],
         "paths": {
             "@/*": [
-                "./*"
+                "./src/*"
             ]
         }
     },
     "include": [
         "src/**/*",
-        "eslint.config.ts",
         "prisma.config.ts"
-    ]
+    ],
 }
