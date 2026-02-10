@@ -1,30 +1,26 @@
-import { DeviceController } from '@/controller/device.controller.ts';
-import { BiometricSDKService } from '@/services/biometric-sdk.services.ts';
-import { DeviceService } from '@/services/device.services.ts';
 import { Router } from 'express';
-
+import { DeviceController } from '@/controller/device.controller.ts';
+import { DeviceService } from '@/services/device.services.ts';
+import { validate } from '@/controller/middleware/validation.middleware.ts';
+import { CreateDeviceSchema, UpdateDeviceSchema, CreateUserDeviceSchema } from '@/dto/device.dto.ts';
 
 const router = Router();
+const service = new DeviceService();
+const controller = new DeviceController(service);
 
-// 1. Instanciamos las dependencias
-const sdkService = new BiometricSDKService();
-const deviceService = new DeviceService();
-const deviceController = new DeviceController(sdkService, deviceService);
+router.post('/create', validate(CreateDeviceSchema), controller.create);
+router.get('/', controller.getAll);
+router.get('/:id', controller.getOne);
+router.put('/:id', validate(UpdateDeviceSchema), controller.update);
+router.delete('/:id', controller.delete);
 
-// 2. Definimos las rutas
-// POST http://localhost:3000/api/devices/sync
-router.post('/sync', deviceController.sync);
+router.post('/:id/sync-users', controller.syncUsers);
+router.post('/:id/sync-attendance', controller.getTodayLogs);
+router.post('/:id/sync-templates', controller.syncTemplates);
+router.post('/:id/reboot', controller.reboot);
+router.post('/:id/enroll', controller.enrollUser);
 
-// POST http://localhost:3000/api/devices/monitor
-router.post('/monitor', deviceController.startMonitoring);
-
-// POST http://localhost:3000/api/devices/sync-attendance
-router.post('/sync-attendance', deviceController.getTodayLogs);
-
-// POST http://localhost:3000/api/devices/register
-router.post('/register', deviceController.register);
-
-// GET http://localhost:3000/api/devices/get-all
-router.get('/get-all', deviceController.listAllDevices);
+router.post('/users-device', controller.getAllUsers);
+router.post('/create-user', validate(CreateUserDeviceSchema), controller.createUser);
 
 export default router;

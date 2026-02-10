@@ -12,14 +12,17 @@ const PORT = process.env.PORT || 3000;
 app.use(helmet()); // Seguridad de cabeceras
 app.use(express.json()); // Para entender JSON en el body
 
+import { errorMiddleware } from './controller/middleware/error.middleware.ts';
+import { NotFoundError } from './lib/errors.ts';
+
 // --- Rutas ---
-// Todo lo que entre por /api pasará por nuestro router maestro
 app.use('/api', mainRouter);
 
-// --- Manejo de errores básico ---
-app.use((req, res) => {
-  res.status(404).json({ message: "Ruta no encontrada" });
+app.use((_req, _res, next) => {
+  next(new NotFoundError());
 });
+
+app.use(errorMiddleware);
 
 app.listen(PORT, () => {
   console.log(`

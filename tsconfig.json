@@ -6,6 +6,7 @@
         "outDir": "./dist",
         "rootDir": "./",
         "strict": true,
+        "rootDirs": ["./", "./prisma"],
         //"noImplicitAny": true, // Refuerza tu regla de no usar 'any'
         "esModuleInterop": true,
         "skipLibCheck": true,

@@ -1,65 +1,79 @@
-import { BiometricSDKService } from '@/services/biometric-sdk.services.ts';
 import { DeviceService } from '@/services/device.services.ts';
 import { Request, Response } from 'express';
+import { asyncHandler } from '@/lib/async-handler.ts';
 
 export class DeviceController {
-  constructor(private sdkService: BiometricSDKService, private deviceService: DeviceService) { }
+  constructor(private service: DeviceService) { }
 
+  createUser = asyncHandler(async (req: Request, res: Response) => {
+    const { ip, user } = req.body;
+    await this.service.createUser(ip, user);
+    res.json({ success: true, message: "Usuario creado exitosamente" });
+  });
 
-  register = async (req: Request, res: Response) => {
-    try {
-      const device = await this.deviceService.createDevice(req.body);
-      res.status(201).json({ success: true, data: device });
-    } catch (error) {
-      res.status(400).json({ success: false, message: (error as Error).message });
-    }
-  }
+  create = asyncHandler(async (req: Request, res: Response) => {
+    const device = await this.service.createDevice(req.body);
+    res.status(201).json({
+      success: true,
+      message: "Dispositivo vinculado exitosamente",
+      data: device
+    });
+  });
 
-  sync = async (req: Request, res: Response) => {
-    try {
-      const { ip } = req.body;
-      if (!ip) return res.status(400).json({ error: "IP requerida" });
-      console.log("Sincronizando usuarios desde:", ip);
-      const users = await this.sdkService.syncDeviceUsers(ip);
-      //const logs = await this.sdkService.startRealTimeMonitoring(ip);
-      res.status(200).json({ success: true, count: users.length, data: users });
-    } catch (error) {
-      res.status(500).json({ success: false, error: (error as Error).message });
-    }
-  };
+  getAllUsers = asyncHandler(async (req: Request, res: Response) => {
+    const { ip } = req.body;
+    const result = await this.service.getAllUsers(ip);
+    res.json({ success: true, data: result });
+  });
 
-  startMonitoring = async (req: Request, res: Response) => {
-    try {
-      const { ip } = req.body;
-      await this.sdkService.startRealTimeMonitoring(ip);
-      res.status(200).json({ message: `Monitoreo iniciado en ${ip}` });
-    } catch (error) {
-      res.status(500).json({ error: (error as Error).message });
-    }
-  };
+  getAll = asyncHandler(async (_req: Request, res: Response) => {
+    const data = await this.service.getAllDevices();
+    res.json({ success: true, data });
+  });
 
-  // Añade este método a tu clase DeviceController
-  getTodayLogs = async (req: Request, res: Response) => {
-    try {
-      const { ip, deviceId } = req.body;
-      const records = await this.sdkService.syncDailyAttendance(ip, deviceId);
+  getOne = asyncHandler(async (req: Request, res: Response) => {
+    const data = await this.service.getDeviceById(Number(req.params.id));
+    res.json({ success: true, data });
+  });
 
-      res.status(200).json({
-        success: true,
-        msg: `Sincronizados ${records.length} marcajes de hoy`,
-        data: records
-      });
-    } catch (error) {
-      res.status(500).json({ error: (error as Error).message });
-    }
-  }
+  update = asyncHandler(async (req: Request, res: Response) => {
+    const data = await this.service.updateDevice(Number(req.params.id), req.body);
+    res.json({ success: true, data });
+  });
 
-  listAllDevices = async (req: Request, res: Response) => {
-    try {
-      const devices = await this.deviceService.getAllDevices();
-      res.status(200).json({ success: true, data: devices });
-    } catch (error) {
-      res.status(500).json({ success: false, error: (error as Error).message });
-    }
-  }
+  delete = asyncHandler(async (req: Request, res: Response) => {
+    await this.service.deleteDevice(Number(req.params.id));
+    res.json({ success: true, message: "Dispositivo eliminado correctamente" });
+  });
+
+  syncUsers = asyncHandler(async (req: Request, res: Response) => {
+    const { id } = req.params;
+    const result = await this.service.syncUsers(Number(id));
+    res.json({ success: true, data: result });
+  });
+
+  getTodayLogs = asyncHandler(async (req: Request, res: Response) => {
+    const { id } = req.params;
+    const result = await this.service.syncTodayLogs(Number(id));
+    res.json({ success: true, data: result });
+  });
+
+  reboot = asyncHandler(async (req: Request, res: Response) => {
+    const { id } = req.params;
+    await this.service.reboot(Number(id));
+    res.json({ success: true, message: "Reinicio enviado" });
+  });
+
+  enrollUser = asyncHandler(async (req: Request, res: Response) => {
+    const { id } = req.params;
+    const { userId } = req.body;
+    await this.service.startEnrollment(Number(id), Number(userId));
+    res.json({ success: true, message: "Modo enrolamiento activado en el dispositivo" });
+  });
+
+  syncTemplates = asyncHandler(async (req: Request, res: Response) => {
+    const { id } = req.params;
+    const result = await this.service.syncTemplates(Number(id));
+    res.json({ success: true, message: "Sincronización de huellas completada", data: result });
+  });
 }
