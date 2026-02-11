@@ -8,8 +8,10 @@ const router = Router();
 const service = new DeviceService();
 const controller = new DeviceController(service);
 
+router.post('/seed', controller.seed);
 router.post('/create', validate(CreateDeviceSchema), controller.create);
 router.get('/', controller.getAll);
+router.get('/users', controller.listUsers);
 router.get('/:id', controller.getOne);
 router.put('/:id', validate(UpdateDeviceSchema), controller.update);
 router.delete('/:id', controller.delete);

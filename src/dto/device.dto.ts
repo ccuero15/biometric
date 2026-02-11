@@ -25,6 +25,7 @@ export const CreateUserDeviceSchema = z.object({
     body: z.object({
         ip: z.string().regex(ipv4Regex, 'IP inválida'),
         user: z.object({
+            cedula: z.coerce.number().int().positive('La cédula es obligatoria y debe ser numérica'),
             name: z.string().min(1, 'El nombre es obligatorio'),
             password: z.string().optional().default(''),
             role: z.number().int().min(0).max(255).default(0),

@@ -57,7 +57,7 @@ export class BiometricHardwareBridge {
         }
     }
 
-    async createUser(ip: string, user: Omit<ZKUserData, 'uid' | 'userid'>) {
+    async createUser(ip: string, user: Omit<ZKUserData, 'uid' | 'userid'> & { cedula: number }) {
         const device = new ZKDevice(ip);
 
         try {
@@ -66,14 +66,13 @@ export class BiometricHardwareBridge {
 
             const newUser = {
                 uid: nextId,
-                userid: nextId.toString(),
+                userid: user.cedula.toString(),
                 name: user.name,
                 password: user.password,
                 role: user.role,
                 cardno: user.cardno
             }
             await device.saveUser(newUser);
-            console.log(newUser);
             return newUser;
         } finally {
             await device.terminate();

@@ -1,7 +1,8 @@
 // prisma/schema.prisma
 
 generator client {
-  provider = "prisma-client-js" // Corregido el nombre del provider estándar
+  provider = "prisma-client-js"
+  output   = "../generated/prisma/client"
 }
 
 datasource db {
@@ -11,7 +12,7 @@ datasource db {
 // --- IDENTIDAD ---
 model User {
   id        Int      @id @default(autoincrement())
-  cedula    String   @unique // Este es el 'userid' del biométrico
+  cedula    Int      @unique // Este es el 'userid' del biométrico (formato numérico)
   fullName  String   @map("full_name")
   email     String   @unique
   password  String

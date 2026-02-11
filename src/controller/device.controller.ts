@@ -76,4 +76,14 @@ export class DeviceController {
     const result = await this.service.syncTemplates(Number(id));
     res.json({ success: true, message: "Sincronización de huellas completada", data: result });
   });
+
+  listUsers = asyncHandler(async (_req: Request, res: Response) => {
+    const data = await this.service.listDbUsers();
+    res.json({ success: true, data });
+  });
+
+  seed = asyncHandler(async (_req: Request, res: Response) => {
+    const result = await this.service.seedDatabase();
+    res.json({ success: true, message: "Base de datos inicializada", data: result });
+  });
 }

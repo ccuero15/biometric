@@ -6,23 +6,31 @@ export class UserRepository extends BaseRepository<any> {
         super(prisma.user);
     }
 
-    async findByCedula(cedula: string) {
+    async findByCedula(cedula: number) {
         return await this.model.findUnique({
             where: { cedula }
         });
     }
 
-    async upsertFromDevice(data: { cedula: string, fullName: string, branchOfficeId: number }) {
+    async upsertFromDevice(data: { cedula: number, fullName: string, branchOfficeId: number }) {
+        const numericCedula = Math.floor(data.cedula);
         return await this.model.upsert({
-            where: { cedula: data.cedula },
+            where: { cedula: numericCedula },
             update: { fullName: data.fullName },
             create: {
-                cedula: data.cedula,
+                cedula: numericCedula,
                 fullName: data.fullName,
-                email: `${data.cedula}@empresa.com`,
+                email: `${numericCedula}@empresa.com`,
                 branchOfficeId: data.branchOfficeId,
                 password: 'default_hashed_password'
             }
+        });
+    }
+
+    async findAll() {
+        return await this.model.findMany({
+            where: { isDeleted: false },
+            include: { branchOffice: true }
         });
     }
 }

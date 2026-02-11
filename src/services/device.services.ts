@@ -1,5 +1,5 @@
 import { BiometricHardwareBridge } from "./biometric-sdk.services.ts";
-import { RegisterDeviceDTO, UpdateDeviceDTO } from "@/dto/device.dto.ts";
+import { RegisterDeviceDTO, UpdateDeviceDTO, CreateUserDeviceDTO } from "@/dto/device.dto.ts";
 import { ZKUserData } from "zklib-js";
 import { DeviceRepository } from "@/repository/device.repository.ts";
 import { UserRepository } from "@/repository/user.repository.ts";
@@ -8,6 +8,8 @@ import { BiometricRepository } from "@/repository/biometric.repository.ts";
 import { NotFoundError, BadRequestError } from "@/lib/errors.ts";
 import { encrypt } from "@/lib/crypto.ts";
 
+import prisma from "@/lib/prisma.ts";
+
 export class DeviceService {
     private bridge = new BiometricHardwareBridge();
     private deviceRepo = new DeviceRepository();
@@ -15,13 +17,40 @@ export class DeviceService {
     private attendanceRepo = new AttendanceRepository();
     private biometricRepo = new BiometricRepository();
 
+    async seedDatabase() {
+        const branchCount = await prisma.branchOffice.count();
+        if (branchCount > 0) return { message: "La base de datos ya tiene sucursales." };
+
+        const company = await prisma.company.create({
+            data: { name: "Empresa Principal" }
+        });
+
+        const branch = await prisma.branchOffice.create({
+            data: {
+                name: "Sede Paraiso",
+                companyId: company.id
+            }
+        });
+
+        return { company, branch };
+    }
+
     async syncUsers(deviceId: number) {
         const dev = await this.getDeviceOrThrow(deviceId);
         const users = await this.bridge.fetchRemoteUsers(dev.ip!);
 
+        console.log(`[Sync] Sincronizando ${users.length} usuarios del dispositivo ${dev.ip}`);
+
         for (const u of users) {
+            const numericId = Number(u.userid.replace(/\D/g, ''));
+
+            if (isNaN(numericId) || numericId <= 0) {
+                console.warn(`[Sync] Saltando usuario con ID inválido: ${u.userid} (${u.name})`);
+                continue;
+            }
+
             await this.userRepo.upsertFromDevice({
-                cedula: u.userid,
+                cedula: numericId,
                 fullName: u.name,
                 branchOfficeId: dev.branchOfficeId
             });
@@ -40,7 +69,11 @@ export class DeviceService {
         for (const log of logs) {
             const logDate = new Date(log.recordTime);
             if (logDate >= today) {
-                const user = await this.userRepo.findByCedula(log.deviceUserId);
+                // Limpiar ID por si acaso trae prefijos
+                const cleanCedula = Number(log.deviceUserId.replace(/\D/g, ''));
+
+                // Buscamos al usuario por su cédula numérica
+                const user = await this.userRepo.findByCedula(cleanCedula);
                 if (user) {
                     const exists = await this.attendanceRepo.findByTimestamp(user.id, logDate);
                     if (!exists) {
@@ -76,6 +109,15 @@ export class DeviceService {
         }
 
         const serial = hardware.pin.toString();
+
+        // Verificar si la sucursal existe antes de crear el dispositivo
+        const branchExists = await prisma.branchOffice.findUnique({
+            where: { id: data.branchOfficeId }
+        });
+
+        if (!branchExists) {
+            throw new BadRequestError(`La sucursal con ID ${data.branchOfficeId} no existe. Use /api/devices/seed para inicializar si es necesario.`);
+        }
 
         const existing = await this.deviceRepo.findBySerial(serial);
         if (existing) {
@@ -115,7 +157,7 @@ export class DeviceService {
         return await this.bridge.fetchRemoteUsers(ip);
     }
 
-    async createUser(ip: string, user: ZKUserData) {
+    async createUser(ip: string, user: CreateUserDeviceDTO[ 'user' ]) {
         return await this.bridge.createUser(ip, user);
     }
 
@@ -147,7 +189,11 @@ export class DeviceService {
             const rUser = remoteUsers.find(u => u.uid === tmp.uid);
             if (!rUser) continue;
 
-            const dbUser = await this.userRepo.findByCedula(rUser.userid);
+            // Limpiar ID
+            const cleanCedula = Number(rUser.userid.replace(/\D/g, ''));
+
+            // Buscamos por cedula numérica
+            const dbUser = await this.userRepo.findByCedula(cleanCedula);
             if (!dbUser) continue;
 
             const { encryptedData, iv } = encrypt(tmp.template);
@@ -156,5 +202,9 @@ export class DeviceService {
         }
 
         return { synced };
+    }
+
+    async listDbUsers() {
+        return await this.userRepo.findAll();
     }
 }

@@ -55,7 +55,11 @@ export class ZKDevice {
   async getAllUsers(): Promise<ZKUserData[]> {
     await this.connect();
     const result = await this.instance.getUsers();
-    return result.data;
+    return result.data.map(user => ({
+      ...user,
+      name: this.cleanString(user.name),
+      userid: this.cleanString((user as any).userId || user.userid)
+    }));
   }
 
   async saveUser(user: ZKUserData): Promise<void> {
@@ -146,6 +150,24 @@ export class ZKDevice {
     this.isConnected = false;
   }
 
+  private async getSafeInfo() {
+    // CMD_GET_FREE_SIZES = 50
+    const data = await this.instance.executeCmd(50, '');
+    if (!Buffer.isBuffer(data)) return { userCounts: 0, logCounts: 0, logCapacity: 0 };
+
+    return {
+      userCounts: data.length >= 28 ? data.readUIntLE(24, 4) : 0,
+      logCounts: data.length >= 44 ? data.readUIntLE(40, 4) : 0,
+      logCapacity: data.length >= 76 ? data.readUIntLE(72, 4) : 0
+    };
+  }
+
+  private cleanString(str: any): string {
+    if (typeof str !== 'string') return String(str);
+    // Elimina caracteres nulos y espacios extra
+    return str.replace(/\0/g, '').trim();
+  }
+
   async getFullHardwareInfo() {
     try {
       await this.connect();
@@ -154,9 +176,17 @@ export class ZKDevice {
         this.instance.getTime(),
         this.instance.getSerialNumber(),
         this.instance.getDeviceName(),
-        this.instance.getInfo()
+        this.getSafeInfo()
       ]);
-      return { firmware, time, serial, name, pin: serial, stats: info };
+
+      return {
+        firmware: this.cleanString(firmware),
+        time,
+        serial: this.cleanString(serial),
+        name: this.cleanString(name),
+        pin: this.cleanString(serial),
+        stats: info
+      };
     } finally {
       await this.disconnect();
     }
