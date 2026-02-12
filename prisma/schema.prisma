@@ -101,12 +101,12 @@ model BranchOffice {
 
 // --- REGISTROS DE ASISTENCIA ---
 model AttendanceRecord {
-  id        Int             @id @default(autoincrement())
-  userId    Int             @map("user_id")
-  user      User            @relation(fields: [userId], references: [id])
-  deviceId  Int             @map("device_id")
-  device    BiometricDevice @relation(fields: [deviceId], references: [id])
-  timestamp DateTime        @default(now())
+  id         Int             @id @default(autoincrement())
+  userId     Int             @map("user_id")
+  user       User            @relation(fields: [userId], references: [id])
+  deviceId   Int             @map("device_id")
+  device     BiometricDevice @relation(fields: [deviceId], references: [id])
+  timestamp  DateTime        @default(now())
 
   // --- EL CAMBIO MÁS IMPORTANTE ---
   // Evita que el mismo usuario marque en el mismo segundo en el mismo dispositivo.

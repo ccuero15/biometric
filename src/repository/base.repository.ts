@@ -1,4 +1,3 @@
-import prisma from '@/lib/prisma.ts';
 
 export class BaseRepository<T> {
     constructor(protected model: any) { }

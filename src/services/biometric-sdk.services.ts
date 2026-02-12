@@ -80,9 +80,19 @@ export class BiometricHardwareBridge {
     }
 
     async startEnrollment(ip: string, uid: number) {
+        // Validación IP
+        if (!ip || typeof ip !== 'string') {
+            throw new Error(`IP inválida para enrolamiento: ${ip}`);
+        }
+
         const device = new ZKDevice(ip);
         try {
+            console.log(`[Bridge] Conectando a ${ip} para enrolar UID ${uid}...`);
             await device.enrollUser(uid);
+            console.log(`[Bridge] Comando enviado exitosamente.`);
+        } catch (error) {
+            console.error(`[Bridge] Error al enrolar:`, error);
+            throw error;
         } finally {
             await device.terminate();
         }

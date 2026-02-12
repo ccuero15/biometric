@@ -4,7 +4,7 @@ export class ZKDevice {
   private instance: ZKLib;
   private isConnected: boolean = false;
   private disconnectTimer: NodeJS.Timeout | null = null;
-  private readonly AUTO_DISCONNECT_MS = 240000; // 1 minuto de gracia
+  private readonly AUTO_DISCONNECT_MS = 240000; // 4 minutos de gracia
 
   constructor(private ip: string, private port: number = 4370) {
     this.instance = new ZKLib(this.ip, this.port, 5000, 4000);
@@ -93,20 +93,87 @@ export class ZKDevice {
     return uids.length > 0 ? Math.max(...uids) : 0;
   }
 
+
   async getTemplates(): Promise<any> {
     await this.connect();
-    // CMD_USERTEMP_RRQ es 9, pero zklib-js suele tenerlo o requiere executeCmd
-    // Intentaremos con executeCmd para control total del buffer
-    return await this.instance.executeCmd(9, '');
+
+    console.log(`[ZKDevice] ⚠️  LIMITACIÓN: zklib-js no soporta descarga de templates`);
+    console.log(`[ZKDevice] Los templates de huellas NO pueden ser descargados con esta librería`);
+    console.log(`[ZKDevice] Alternativas:`);
+    console.log(`[ZKDevice]   1. Usar el SDK oficial de ZKTeco (C++/.NET)`);
+    console.log(`[ZKDevice]   2. Registrar huellas directamente en el dispositivo`);
+    console.log(`[ZKDevice]   3. Usar un servicio puente con el SDK oficial`);
+
+    // Devolvemos un array vacío para no romper el flujo
+    return {
+      data: [],
+      error: 'zklib-js no soporta descarga de templates de huellas',
+      message: 'Esta funcionalidad requiere el SDK oficial de ZKTeco'
+    };
+  }
+
+
+  async enrollUser_old(uid: number, fingerIndex: number = 0, flag: number = 1): Promise<void> {
+    await this.connect();
+    console.log("Métodos disponibles en ZKLib:", Object.keys(Object.getPrototypeOf(this.instance)));
+
+
+    const commandData = Buffer.alloc(4);
+    commandData.writeUInt16LE(uid, 0); // UID
+    commandData.writeUInt16LE(0, 2);   // Finger ID (0)
+
+    console.log(`[ZKDevice] Intentando enrolamiento para UID ${uid}...`);
+    try {
+      console.log(`[ZKDevice] Sending StartEnroll for UID ${uid}...`);
+      const response = await this.instance.executeCmd(110, uid.toString());
+      console.log("Response:", response);
+      await this.instance.enableDevice();
+      //await this.instance.executeCmd(61, buf);
+      // Sin refresh inmediato para no interrumpir la UI del aparato
+    } catch (error) {
+      console.error("[ZKDevice] Enroll failed:", error);
+      throw error;
+    }
   }
 
   async enrollUser(uid: number): Promise<void> {
     await this.connect();
-    // CMD_STARTENROLL = 61
-    const buf = Buffer.alloc(4);
-    buf.writeUInt32LE(uid, 0);
-    await this.instance.executeCmd(61, buf);
-    // Refrescar para que el aparato sepa que hay cambios
+
+    try {
+      console.log(`[ZKDevice] Preparando dispositivo para enrolamiento manual de UID ${uid}...`);
+
+      // 1. Deshabilitar temporalmente para limpiar estado
+      await this.instance.disableDevice();
+      await new Promise(resolve => setTimeout(resolve, 300));
+
+      // 2. Re-habilitar para que el usuario pueda interactuar
+      await this.instance.enableDevice();
+
+      console.log(`[ZKDevice] ========================================`);
+      console.log(`[ZKDevice] DISPOSITIVO LISTO`);
+      console.log(`[ZKDevice] ========================================`);
+      console.log(`[ZKDevice] `);
+      console.log(`[ZKDevice] INSTRUCCIONES PARA EL USUARIO:`);
+      console.log(`[ZKDevice] 1. En el dispositivo, presiona MENU`);
+      console.log(`[ZKDevice] 2. Ve a: User Mgt → Enroll User`);
+      console.log(`[ZKDevice] 3. Ingresa el ID: ${uid}`);
+      console.log(`[ZKDevice] 4. Registra la huella cuando lo solicite`);
+      console.log(`[ZKDevice] `);
+      console.log(`[ZKDevice] NOTA: zklib-js no soporta enrolamiento`);
+      console.log(`[ZKDevice] remoto en la mayoría de firmwares ZK.`);
+      console.log(`[ZKDevice] Debe hacerse manualmente en el dispositivo.`);
+      console.log(`[ZKDevice] ========================================`);
+
+    } catch (error) {
+      console.error("[ZKDevice] Error al preparar dispositivo:", error);
+      throw error;
+    }
+  }
+
+  // Método de emergencia para desbloquear si se queda "tonto"
+  async unlockForce(): Promise<void> {
+    await this.connect();
+    await this.instance.enableDevice();
     await this.instance.executeCmd(1013, '');
   }
 
@@ -129,8 +196,56 @@ export class ZKDevice {
 
   async syncTime(): Promise<void> {
     await this.connect();
-    // zklib-js doesn't have setTime, but it has getTime.
-    // For now we keep it empty or implement it if critical later.
+
+    // Obtener fecha/hora actual del servidor
+    const now = new Date();
+
+    try {
+      // Intentar usar el método nativo si existe (algunas versiones de zklib lo tienen)
+      if (typeof (this.instance as any).setTime === 'function') {
+        console.log(`[ZKDevice] Sincronizando hora usando setTime nativo: ${now.toLocaleString()}`);
+        await (this.instance as any).setTime(now);
+        return;
+      }
+
+      // Si no, usar executeCmd con CMD_SET_TIME (201)
+      // El formato de fecha en ZK es un entero de 32 bits codificado
+      // ((Year-2000)*12*31 + ((Month-1)*31) + Day-1)*(24*60*60) + (Hour*60*60) + (Minute*60) + Second
+
+      const t = this.encodeTime(now);
+      console.log(`[ZKDevice] Sincronizando hora (CMD 201) a: ${now.toLocaleString()} (encoded: ${t})`);
+
+      // Enviar comando
+      // Nota: zklib-js executeCmd espera string para data en algunos casos, 
+      // pero para setTime suele ser un entero. ZKLib UDP usa enteros, TCP puede variar.
+      // Probaremos pasando el buffer de 4 bytes
+      const buf = Buffer.alloc(4);
+      buf.writeUInt32LE(t, 0);
+
+      await this.instance.executeCmd(201, buf);
+      console.log(`[ZKDevice] Hora sincronizada correctamente`);
+
+    } catch (error) {
+      console.error(`[ZKDevice] Error sincronizando hora:`, error);
+      // No lanzamos error para no detener procesos masivos, solo logueamos
+    }
+  }
+
+  // Utilidad para codificar fecha al formato ZK
+  private encodeTime(date: Date): number {
+    const year = date.getFullYear() % 100;
+    const month = date.getMonth() + 1;
+    const day = date.getDate();
+    const hour = date.getHours();
+    const minute = date.getMinutes();
+    const second = date.getSeconds();
+
+    return (
+      ((year * 12 * 31 + (month - 1) * 31 + (day - 1)) * (24 * 60 * 60)) +
+      (hour * 60 * 60) +
+      (minute * 60) +
+      second
+    );
   }
 
   async lockDevice(): Promise<void> {

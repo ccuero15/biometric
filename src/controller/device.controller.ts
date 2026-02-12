@@ -55,7 +55,12 @@ export class DeviceController {
   getTodayLogs = asyncHandler(async (req: Request, res: Response) => {
     const { id } = req.params;
     const result = await this.service.syncTodayLogs(Number(id));
-    res.json({ success: true, data: result });
+
+    res.json({
+      success: true,
+      message: `Sincronización completada: ${result.saved} nuevos registros`,
+      data: result
+    });
   });
 
   reboot = asyncHandler(async (req: Request, res: Response) => {
@@ -68,13 +73,22 @@ export class DeviceController {
     const { id } = req.params;
     const { userId } = req.body;
     await this.service.startEnrollment(Number(id), Number(userId));
-    res.json({ success: true, message: "Modo enrolamiento activado en el dispositivo" });
+    res.json({ success: true, mestartEnrollmentssage: "Modo enrolamiento activado en el dispositivo" });
   });
 
   syncTemplates = asyncHandler(async (req: Request, res: Response) => {
     const { id } = req.params;
     const result = await this.service.syncTemplates(Number(id));
-    res.json({ success: true, message: "Sincronización de huellas completada", data: result });
+
+    const message = result.errors > 0
+      ? `Sincronización completada con ${result.errors} errores`
+      : "Sincronización de huellas completada exitosamente";
+
+    res.json({
+      success: true,
+      message,
+      data: result
+    });
   });
 
   listUsers = asyncHandler(async (_req: Request, res: Response) => {

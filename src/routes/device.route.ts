@@ -18,9 +18,9 @@ router.delete('/:id', controller.delete);
 
 router.post('/:id/sync-users', controller.syncUsers);
 router.post('/:id/sync-attendance', controller.getTodayLogs);
-router.post('/:id/sync-templates', controller.syncTemplates);
+//router.post('/:id/sync-templates', controller.syncTemplates);
 router.post('/:id/reboot', controller.reboot);
-router.post('/:id/enroll', controller.enrollUser);
+//router.post('/:id/enroll', controller.enrollUser);
 
 router.post('/users-device', controller.getAllUsers);
 router.post('/create-user', validate(CreateUserDeviceSchema), controller.createUser);
