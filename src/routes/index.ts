@@ -1,10 +1,13 @@
 import { Router } from 'express';
 import deviceRoutes from './device.route.ts';
-// import userRoutes from './user.routes.js'; // Futuro
+import { deviceManagerRouter } from './v1/device-manager.routes.ts';
 
 const router = Router();
 
-// Agrupamos las rutas bajo el prefijo /devices
+// Rutas Legacy (V0)
 router.use('/devices', deviceRoutes);
+
+// Rutas V1 (Device Manager)
+router.use('/v1/devices', deviceManagerRouter);
 
 export default router;
