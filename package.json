@@ -4,8 +4,11 @@
   "description": "",
   "main": "index.js",
   "scripts": {
-    "dev": "tsx watch src/index.ts",
-    "generate": "prisma generate"
+    "predev": "powershell -Command \"try { Get-NetTCPConnection -LocalPort 3000, 8765, 8766 -ErrorAction SilentlyContinue | ForEach-Object { Stop-Process -Id $_.OwningProcess -Force -ErrorAction SilentlyContinue } } catch {} ; exit 0\"",
+    "dev": "concurrently -k -p \"[{name}]\" -n \"PROT,NODE\" -c \"yellow,blue\" \"npm run bridge\" \"npm run node\"",
+    "node": "tsx watch src/index.ts",
+    "generate": "prisma generate",
+    "bridge": "cmd /c \"cd python-bridge && .\\venv\\Scripts\\python bridge.py\""
   },
   "keywords": [],
   "author": "",
@@ -37,6 +40,7 @@
     "@types/node": "^25.2.1",
     "@types/pg": "^8.16.0",
     "@types/ws": "^8.18.1",
+    "concurrently": "^9.2.1",
     "dotenv": "^17.2.4",
     "eslint": "^9.39.2",
     "eslint-import-resolver-typescript": "^4.4.4",

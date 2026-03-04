@@ -8,6 +8,7 @@ import {
   BridgeEvent,
   AttendanceEvent,
   DeviceErrorEvent,
+  EnrollStatusEvent,
   DeviceStatus
 } from '../interfaces/biometric.interface.ts';
 
@@ -25,11 +26,11 @@ export class ZKPythonBridge extends EventEmitter {
   private readonly reconnectInterval: number = 5000;
   private readonly requestTimeout: number = 30000; // 30s para operaciones de dispositivo
   private readonly url: string;
-  
+
   // Registro de dispositivos gestionados
   private deviceRegistry: Map<string, DeviceStatus> = new Map();
 
-  constructor(url: string = process.env.PYTHON_BRIDGE_URL || 'ws://localhost:8765') {
+  constructor(url: string = process.env.PYTHON_BRIDGE_URL || 'ws://127.0.0.1:8765') {
     super();
     this.url = url;
   }
@@ -45,7 +46,7 @@ export class ZKPythonBridge extends EventEmitter {
 
     return new Promise((resolve, reject) => {
       console.log(`[ZK Bridge] Conectando a ${this.url}...`);
-      
+
       try {
         this.ws = new WebSocket(this.url);
 
@@ -86,7 +87,7 @@ export class ZKPythonBridge extends EventEmitter {
       clearTimeout(this.reconnectTimer);
       this.reconnectTimer = null;
     }
-    
+
     // Rechazar todas las peticiones pendientes
     this.pendingRequests.forEach((req) => {
       clearTimeout(req.timeout);
@@ -98,7 +99,7 @@ export class ZKPythonBridge extends EventEmitter {
       this.ws.terminate();
       this.ws = null;
     }
-    
+
     this.isConnected = false;
     this.emit('disconnected');
   }
@@ -106,7 +107,7 @@ export class ZKPythonBridge extends EventEmitter {
   private handleDisconnection(): void {
     this.isConnected = false;
     this.emit('disconnected');
-    
+
     // Limpiar peticiones pendientes
     this.pendingRequests.forEach((req) => {
       clearTimeout(req.timeout);
@@ -167,6 +168,9 @@ export class ZKPythonBridge extends EventEmitter {
           this.deviceRegistry.set(event.deviceId, DeviceStatus.ERROR);
         }
         break;
+      case 'enroll_status':
+        this.emit('enrollStatus', event as EnrollStatusEvent);
+        break;
     }
   }
 
@@ -174,7 +178,7 @@ export class ZKPythonBridge extends EventEmitter {
    * Envío genérico de comandos al Bridge
    */
   private async sendCommand<T = any>(
-    action: BridgeAction, 
+    action: BridgeAction,
     payload: Record<string, unknown> = {}
   ): Promise<T> {
     if (!this.isConnected || !this.ws) {
@@ -210,10 +214,10 @@ export class ZKPythonBridge extends EventEmitter {
   // ==================== API PÚBLICA PARA DISPOSITIVOS ====================
 
   async connectDevice(
-    deviceId: string, 
-    ip: string, 
+    deviceId: string,
+    ip: string,
     port: number = 4370,
-    timeout: number = 5
+    timeout: number = 10
   ): Promise<BridgeResponse> {
     const result = await this.sendCommand<BridgeResponse>('connect_device', {
       device_id: deviceId,
@@ -221,11 +225,11 @@ export class ZKPythonBridge extends EventEmitter {
       port,
       timeout
     });
-    
+
     if (result.status === 'connected') {
       this.deviceRegistry.set(deviceId, DeviceStatus.CONNECTED);
     }
-    
+
     return result;
   }
 
@@ -233,7 +237,7 @@ export class ZKPythonBridge extends EventEmitter {
     const result = await this.sendCommand<BridgeResponse>('disconnect_device', {
       device_id: deviceId
     });
-    
+
     this.deviceRegistry.delete(deviceId);
     return result;
   }
@@ -254,7 +258,7 @@ export class ZKPythonBridge extends EventEmitter {
   }
 
   async createUser(
-    deviceId: string, 
+    deviceId: string,
     userData: {
       uid: number;
       name: string;
@@ -276,6 +280,14 @@ export class ZKPythonBridge extends EventEmitter {
       device_id: deviceId,
       uid
     });
+  }
+
+  async enrollUser(deviceId: string, uid: number): Promise<BridgeResponse> {
+    const result = await this.sendCommand<BridgeResponse>('START_ENROLL', {
+      device_id: deviceId,
+      uid
+    });
+    return result;
   }
 
   async getAttendanceLogs(deviceId: string): Promise<{ logs: any[]; count: number }> {

@@ -17,7 +17,7 @@ export const UpdateDeviceSchema = z.object({
     ip: z.string().regex(ipv4Regex, 'IP inválida').optional(),
     port: z.number().int().positive().optional(),
     branchOfficeId: z.number().int().positive().optional(),
-    status: z.enum([ 'ONLINE', 'OFFLINE' ]).optional(),
+    status: z.enum(['ONLINE', 'OFFLINE']).optional(),
   })
 });
 
@@ -35,24 +35,21 @@ export const CreateUserDeviceSchema = z.object({
 });
 
 export const ConnectDeviceSchema = z.object({
-  deviceId: z.string().min(1, 'Device ID es requerido'),
   ip: z.string().regex(ipv4Regex, 'IP inválida'),
+  deviceId: z.string().optional(), // Si no se provee, se deriva de la IP
   port: z.number().int().min(1).max(65535).default(4370),
-  timeout: z.number().int().min(1).max(60).default(5),
-  password: z.number().int().min(0).default(0),
-  forceUdp: z.boolean().default(false),
-  location: z.string().optional(),
-  description: z.string().optional()
+  timeout: z.number().int().min(1).max(60).default(10),
+  password: z.number().int().min(0).default(0)
 });
 
 export const CreateUserSchema = z.object({
-  uid: z.number().int().positive('UID debe ser positivo'),
   name: z.string().min(1, 'Nombre es requerido').max(50, 'Nombre muy largo'),
-  userId: z.string().min(1, 'User ID es requerido').max(20),
+  userId: z.string().min(1, 'User ID (Cédula/Código) es requerido').max(20),
+  uid: z.number().int().positive().optional(), // Opcional, el backend puede buscar el siguiente
   privilege: z.number().int().min(0).max(1).default(0),
-  password: z.string().max(8).default(''), // ZKTeco soporta max 8 chars
-  groupId: z.string().max(10).default(''),
-  card: z.number().int().min(0).default(0)
+  password: z.string().max(8).optional().default(''),
+  groupId: z.string().max(10).optional().default('1'),
+  card: z.number().int().min(0).optional().default(0)
 });
 
 export const DeviceCommandSchema = z.object({
@@ -116,6 +113,6 @@ export function formatZodErrors(errors: z.ZodIssue[]): Array<{ field: string; me
   }));
 }
 
-export type RegisterDeviceDTO = z.infer<typeof CreateDeviceSchema>[ 'body' ];
-export type UpdateDeviceDTO = z.infer<typeof UpdateDeviceSchema>[ 'body' ];
-export type CreateUserDeviceDTO = z.infer<typeof CreateUserDeviceSchema>[ 'body' ];
+export type RegisterDeviceDTO = z.infer<typeof CreateDeviceSchema>['body'];
+export type UpdateDeviceDTO = z.infer<typeof UpdateDeviceSchema>['body'];
+export type CreateUserDeviceDTO = z.infer<typeof CreateUserDeviceSchema>['body'];

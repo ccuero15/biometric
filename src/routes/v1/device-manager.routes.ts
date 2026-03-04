@@ -7,6 +7,7 @@ const router = Router();
 
 // Conectar un nuevo dispositivo (o reconectar)
 router.post('/connect', deviceController.connectDevice);
+router.post('/:deviceId/connect', deviceController.connectDevice);
 
 // Desconectar un dispositivo
 router.delete('/:deviceId', deviceController.disconnectDevice);
@@ -38,6 +39,9 @@ router.get('/:deviceId/attendance', deviceController.getAttendance);
 
 // Borrar logs del dispositivo
 router.delete('/:deviceId/attendance', deviceController.clearAttendance);
+
+// Iniciar enrolamiento remoto
+router.post('/:deviceId/enroll', deviceController.startEnrollment);
 
 
 // === UTILIDADES ===

@@ -32,15 +32,28 @@ app.use(errorMiddleware);
 async function bootstrap(): Promise<void> {
   try {
     console.log('🚀 Iniciando Biometric API...');
-    
-    // 1. Conectar al Python Bridge
-    await deviceManager.initialize();
-    console.log('✅ Conectado a Python Bridge');
-    
+
+    // 1. Conectar al Python Bridge (Reintentar si no está listo aún)
+    let connected = false;
+    let attempts = 0;
+    while (!connected && attempts < 10) {
+      try {
+        await deviceManager.initialize();
+        connected = true;
+        console.log('✅ Conectado a Python Bridge');
+      } catch (e) {
+        attempts++;
+        console.log(`📡 Esperando Python Bridge (Intento ${attempts}/10)...`);
+        await new Promise(resolve => setTimeout(resolve, 2000));
+      }
+    }
+
+    if (!connected) throw new Error('No se pudo conectar al Python Bridge tras 10 intentos');
+
     // 2. Iniciar WebSocket Server para frontend
     const wsServer = new AttendanceSocketServer(httpServer);
     console.log('✅ WebSocket Server iniciado');
-    
+
     // 3. Iniciar HTTP Server
     httpServer.listen(PORT, () => {
       console.log(`✅ API REST escuchando en http://localhost:${PORT}`);

@@ -57,7 +57,16 @@ export interface DeviceErrorEvent {
   timestamp: string;
 }
 
-export type BridgeEvent = AttendanceEvent | DeviceErrorEvent;
+export interface EnrollStatusEvent {
+  event: 'enroll_status';
+  deviceId: string;
+  status: string;
+  message: string;
+  uid: number;
+  attempt?: number;
+}
+
+export type BridgeEvent = AttendanceEvent | DeviceErrorEvent | EnrollStatusEvent;
 
 // Request/Response del Bridge
 export interface BridgeRequest {
@@ -67,7 +76,7 @@ export interface BridgeRequest {
   payload?: Record<string, unknown>;
 }
 
-export type BridgeAction = 
+export type BridgeAction =
   | 'connect_device'
   | 'disconnect_device'
   | 'start_live_capture'
@@ -79,14 +88,18 @@ export type BridgeAction =
   | 'clear_attendance'
   | 'get_device_info'
   | 'test_voice'
-  | 'restart_device';
+  | 'restart_device'
+  | 'enroll_user'
+  | 'START_ENROLL';
 
 export interface BridgeResponse {
   requestId?: string;
-  status: 'success' | 'error' | 'connected' | 'disconnected' | 'already_connected';
+  status: 'success' | 'error' | 'connected' | 'disconnected' | 'already_connected' | 'enrollment_success';
   deviceId?: string;
   data?: unknown;
   error?: string;
   message?: string;
   info?: DeviceInfo;
+  template?: string; // Hash/Template de la huella en Hex
+  code?: string;     // Código de error específico
 }

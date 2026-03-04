@@ -1,5 +1,5 @@
 import { Request, Response } from 'express';
-import { deviceManager } from '../services/DeviceManagerService.js';
+import { deviceManager } from '../services/DeviceManagerService.ts';
 
 
 import {
@@ -18,10 +18,31 @@ export class DeviceController {
 
   /**
    * POST /api/devices/connect
+   * o
+   * POST /api/devices/:deviceId/connect
    */
   async connectDevice(req: Request, res: Response): Promise<void> {
     try {
-      // Validación con Zod
+      const { deviceId: paramDeviceId } = req.params;
+
+      if (paramDeviceId) {
+        console.log(`[DeviceController] Intentando conectar dispositivo por ID: ${paramDeviceId}`);
+        const status = await deviceManager.getDeviceStatus(paramDeviceId as string);
+
+        if (!status.registered) {
+          await deviceManager.ensureConnected(paramDeviceId as string);
+        }
+
+        const updatedStatus = deviceManager.getDeviceStatus(paramDeviceId as string);
+        res.json({
+          success: true,
+          message: `Dispositivo ${paramDeviceId} procesado`,
+          status: updatedStatus
+        });
+        return;
+      }
+
+      console.log('[DeviceController] Solicitud de conexión manual recibida:', req.body);
       const validation = validateDto(ConnectDeviceSchema, req.body);
 
       if (!validation.success) {
@@ -34,18 +55,17 @@ export class DeviceController {
       }
 
       const dto = validation.data;
+      const deviceId = dto.deviceId || dto.ip.replace(/\./g, '_');
 
       const deviceInfo = await deviceManager.registerDevice({
-        deviceId: dto.deviceId,
+        deviceId: deviceId as string,
         ip: dto.ip,
-        port: dto.port,
-        location: dto.location,
-        description: dto.description
+        port: dto.port
       });
 
       res.json({
         success: true,
-        message: `Dispositivo ${dto.deviceId} conectado`,
+        message: `Dispositivo ${deviceId} conectado`,
         data: deviceInfo
       });
 
@@ -58,14 +78,13 @@ export class DeviceController {
     }
   }
 
+
   /**
    * DELETE /api/devices/:deviceId
    */
   async disconnectDevice(req: Request, res: Response): Promise<void> {
     try {
-      // Validar params con Zod
       const dto = parseDto(DeviceCommandSchema, { deviceId: req.params.deviceId });
-
       await deviceManager.unregisterDevice(dto.deviceId);
 
       res.json({
@@ -130,29 +149,23 @@ export class DeviceController {
 
       const dto = validation.data;
       const deviceId = req.params.deviceId;
-
-      // Validar que deviceId existe
       parseDto(DeviceCommandSchema, { deviceId });
 
-
-      await deviceManager.enrollUser(deviceId, {
-        uid: dto.uid,
-        name: dto.name as string,
+      const userData = {
+        uid: dto.uid as number,
+        name: dto.name,
         userId: dto.userId,
         privilege: dto.privilege,
         password: dto.password,
         groupId: dto.groupId
-      });
+      };
+
+      const finalUser = await deviceManager.enrollUser(deviceId as string, userData);
 
       res.status(201).json({
         success: true,
         message: `Usuario ${dto.userId} creado exitosamente`,
-        data: {
-          uid: dto.uid,
-          userId: dto.userId,
-          name: dto.name,
-          deviceId
-        }
+        data: finalUser
       });
 
     } catch (error: any) {
@@ -165,6 +178,50 @@ export class DeviceController {
         return;
       }
 
+      res.status(500).json({
+        success: false,
+        error: error.message
+      });
+    }
+  }
+
+  /**
+   * POST /api/devices/:deviceId/enroll
+   */
+  async startEnrollment(req: Request, res: Response): Promise<void> {
+    try {
+      const deviceId = req.params.deviceId;
+      const { uid } = req.body;
+
+      if (!uid || typeof uid !== 'number') {
+        res.status(400).json({
+          success: false,
+          error: 'UID válido es requerido'
+        });
+        return;
+      }
+
+      const result = await deviceManager.startRemoteEnrollment(deviceId as string, uid);
+
+      if (result.status === 'enrollment_success') {
+        res.json({
+          success: true,
+          message: result.message || 'Enrolamiento exitoso',
+          data: {
+            deviceId,
+            uid,
+            template: result.template
+          }
+        });
+      } else {
+        res.status(500).json({
+          success: false,
+          error: result.message || 'Error durante el enrolamiento',
+          code: result.code
+        });
+      }
+
+    } catch (error: any) {
       res.status(500).json({
         success: false,
         error: error.message
